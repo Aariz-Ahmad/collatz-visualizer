@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collatz — a journey to one</title>
+<style>
+  :root{
+    --bg: #0b0c10;
+    --bg-vignette: #0e1116;
+    --node-fill: #15171d;
+    --node-stroke: #3c3f4a;
+    --node-stroke-active: #cfcdc4;
+    --text: #e4e2dc;
+    --muted: #7a7d8a;
+    --green: #6fcf97;
+    --green-dim: #3f6b52;
+    --blue: #74a9dd;
+    --blue-dim: #3f5a78;
+    --cycle: #9a97a8;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--bg);
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  }
+
+  #stage {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    background:
+      radial-gradient(ellipse 1200px 800px at 50% 40%, var(--bg-vignette) 0%, var(--bg) 70%);
+  }
+  #stage.dragging { cursor: grabbing; }
+
+  svg#world-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  .edge {
+    fill: none;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.6s cubic-bezier(.22,.61,.36,1);
+  }
+  .edge-green { stroke: var(--green); stroke-width: 1.6; opacity: 0.75; }
+  .edge-blue  { stroke: var(--blue);  stroke-width: 1.6; opacity: 0.75; }
+  .edge-cycle {
+    stroke: var(--cycle);
+    stroke-width: 1.4;
+    stroke-dasharray: 2 6;
+    opacity: 0;
+    transition: opacity 1s ease, stroke-dashoffset 1.4s cubic-bezier(.22,.61,.36,1);
+  }
+  .edge-cycle.show { opacity: 0.85; }
+
+  .node {
+    transform-box: fill-box;
+    transform-origin: center;
+    cursor: pointer;
+    opacity: 0;
+  }
+  .node.appear {
+    animation: boing 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes boing {
+    0%   { transform: scale(0.05); opacity: 0; }
+    55%  { transform: scale(1.22); opacity: 1; }
+    75%  { transform: scale(0.93); }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  .node circle {
+    fill: var(--node-fill);
+    stroke: var(--node-stroke);
+    stroke-width: 1.3;
+    transition: stroke 0.35s ease, stroke-width 0.35s ease, filter 0.35s ease;
+  }
+  .node.start circle { stroke: var(--muted); }
+  .node.active circle {
+    stroke: var(--node-stroke-active);
+    stroke-width: 2;
+    filter: drop-shadow(0 0 6px rgba(207,205,196,0.35));
+  }
+  .node text {
+    fill: var(--text);
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  /* ---------- UI overlay ---------- */
+
+  #stats {
+    position: fixed;
+    top: 28px;
+    left: 32px;
+    display: flex;
+    gap: 40px;
+    pointer-events: none;
+    user-select: none;
+  }
+  .stat-block { display: flex; flex-direction: column; gap: 4px; }
+  .stat-label {
+    font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
+    font-style: italic;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: lowercase;
+  }
+  .stat-value {
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 21px;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    transition: color 0.3s ease;
+  }
+  .stat-value.pulse { color: var(--green); }
+
+  #control {
+    position: fixed;
+    left: 50%;
+    bottom: 34px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(15, 16, 21, 0.72);
+    border: 1px solid rgba(255,255,255,0.07);
+    backdrop-filter: blur(10px);
+    border-radius: 999px;
+    padding: 8px 8px 8px 20px;
+  }
+  #control input[type="text"] {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 15px;
+    width: 150px;
+    letter-spacing: 0.02em;
+  }
+  #control input[type="text"]::placeholder { color: var(--muted); }
+  #control button {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 14px;
+    padding: 8px 18px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  }
+  #control button:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2); }
+  #control button:disabled { opacity: 0.35; cursor: default; }
+
+  #hint {
+    position: fixed;
+    left: 50%;
+    bottom: 84px;
+    transform: translateX(-50%);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #hint.show { opacity: 0.65; }
+
+  #fit-btn {
+    position: fixed;
+    right: 28px;
+    bottom: 34px;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: rgba(15, 16, 21, 0.72);
+    border: 1px solid rgba(255,255,255,0.09);
+    backdrop-filter: blur(10px);
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+    font-size: 15px;
+  }
+  #fit-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.22); }
+
+  #error-msg {
+    position: fixed;
+    left: 50%;
+    bottom: 84px;
+    transform: translateX(-50%);
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: #c88a7f;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  #error-msg.show { opacity: 0.9; }
+
+  #cap-note {
+    position: fixed;
+    top: 28px;
+    right: 32px;
+    font-family: Georgia, serif;
+    font-style: italic;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    max-width: 260px;
+    text-align: right;
+  }
+  #cap-note.show { opacity: 0.6; }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <svg id="world-svg">
+    <g id="world">
+      <g id="edges"></g>
+      <g id="nodes"></g>
+    </g>
+  </svg>
+</div>
+
+<div id="stats">
+  <div class="stat-block">
+    <div class="stat-label">starting point</div>
+    <div class="stat-value" id="stat-start">—</div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-label">peak</div>
+    <div class="stat-value" id="stat-peak">—</div>
+  </div>
+</div>
+
+<div id="cap-note"></div>
+<div id="hint">drag to pan · scroll to zoom · click a node</div>
+<div id="error-msg"></div>
+
+<div id="control">
+  <input type="text" id="num-input" placeholder="enter a positive integer" inputmode="numeric" autocomplete="off" />
+  <button id="go-btn">begin</button>
+</div>
+
+<div id="fit-btn" title="fit view">⤢</div>
+
+<script>
+(function(){
+  "use strict";
+
+
+  const MAX_NODES = 4000;       
+  const MAX_DIGITS = 60;       
+  const BASE_GROWTH = 5;         
+                                
+  const OFFSET_CLAMP = 95;    
+  const RADIUS_SCALE = 34;      
+  const RADIUS_JITTER = 8;
+  const RADIUS_MIN = 46;
+  const ANGLE_STEP_BASE = 0.26;  
+  const ANGLE_JITTER = 0.24;
+  const CENTER_DRIFT = 0.5;     
+  const MIN_NODE_DIST = 60;      
+
+
+  function log10BigInt(n) {
+    if (n <= 0n) return 0;
+    const s = n.toString();
+    const len = s.length;
+    if (len <= 15) return Math.log10(Number(n));
+    const prefix = s.slice(0, 15);
+    const exp = len - 15;
+    return Math.log10(Number(prefix)) + exp;
+  }
+
+  function collatzSequence(start, maxSteps) {
+    const seq = [start];
+    let n = start;
+    let capped = false;
+    let steps = 0;
+    while (n !== 1n) {
+      n = (n % 2n === 0n) ? (n / 2n) : (3n * n + 1n);
+      seq.push(n);
+      steps++;
+      if (steps >= maxSteps) { capped = true; break; }
+    }
+    return { seq, capped };
+  }
+
+
+  function ensureCycleTail(seq) {
+    const s = seq.slice();
+    function tailOk(arr) {
+      if (arr.length < 3) return false;
+      const l = arr.length;
+      return arr[l-3] === 4n && arr[l-2] === 2n && arr[l-1] === 1n;
+    }
+    let guard = 0;
+    while (!tailOk(s) && guard < 12) {
+      const last = s[s.length - 1];
+      const next = (last % 2n === 0n) ? (last / 2n) : (3n * last + 1n);
+      s.push(next);
+      guard++;
+    }
+    return s;
+  }
+
+  function formatBig(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+
+  const svg = document.getElementById("world-svg");
+  const stage = document.getElementById("stage");
+  const worldG = document.getElementById("world");
+  const edgesG = document.getElementById("edges");
+  const nodesG = document.getElementById("nodes");
+  const input = document.getElementById("num-input");
+  const goBtn = document.getElementById("go-btn");
+  const statStart = document.getElementById("stat-start");
+  const statPeak = document.getElementById("stat-peak");
+  const hint = document.getElementById("hint");
+  const errorMsg = document.getElementById("error-msg");
+  const capNote = document.getElementById("cap-note");
+  const fitBtn = document.getElementById("fit-btn");
+
+
+  const cam = { x: 0, y: 0, k: 1 };
+  function applyCam() {
+    worldG.setAttribute("transform", `translate(${cam.x},${cam.y}) scale(${cam.k})`);
+  }
+
+  let isDragging = false;
+  let dragStart = null;
+  let camStart = null;
+  let dragMoved = false;
+
+  stage.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    dragMoved = false;
+    dragStart = { x: e.clientX, y: e.clientY };
+    camStart = { x: cam.x, y: cam.y };
+    stage.classList.add("dragging");
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+    cam.x = camStart.x + dx;
+    cam.y = camStart.y + dy;
+    applyCam();
+  });
+  window.addEventListener("mouseup", () => {
+    isDragging = false;
+    stage.classList.remove("dragging");
+  });
+
+  // touch support (basic single-finger pan)
+  stage.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    isDragging = true;
+    dragMoved = false;
+    dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    camStart = { x: cam.x, y: cam.y };
+  }, { passive: true });
+  stage.addEventListener("touchmove", (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStart.x;
+    const dy = e.touches[0].clientY - dragStart.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+    cam.x = camStart.x + dx;
+    cam.y = camStart.y + dy;
+    applyCam();
+  }, { passive: true });
+  stage.addEventListener("touchend", () => { isDragging = false; }, { passive: true });
+
+  stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = stage.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const factor = Math.exp(-e.deltaY * 0.0012);
+    const newK = Math.min(4, Math.max(0.08, cam.k * factor));
+    const wx = (mx - cam.x) / cam.k;
+    const wy = (my - cam.y) / cam.k;
+    cam.x = mx - wx * newK;
+    cam.y = my - wy * newK;
+    cam.k = newK;
+    applyCam();
+  }, { passive: false });
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function animateCamTo(targetX, targetY, targetK, duration = 650) {
+    const startX = cam.x, startY = cam.y, startK = cam.k;
+    const t0 = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      cam.x = lerp(startX, targetX, e);
+      cam.y = lerp(startY, targetY, e);
+      cam.k = lerp(startK, targetK, e);
+      applyCam();
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function fitView() {
+    if (nodes.length === 0) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const nd of nodes) {
+      minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x);
+      minY = Math.min(minY, nd.y); maxY = Math.max(maxY, nd.y);
+    }
+    const pad = 120;
+    const w = Math.max(1, maxX - minX + pad * 2);
+    const h = Math.max(1, maxY - minY + pad * 2);
+    const rect = stage.getBoundingClientRect();
+    const k = Math.min(2, Math.min(rect.width / w, rect.height / h));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const targetX = rect.width / 2 - cx * k;
+    const targetY = rect.height / 2 - cy * k;
+    animateCamTo(targetX, targetY, k, 750);
+  }
+  fitBtn.addEventListener("click", fitView);
+
+
+  let nodes = [];      
+  let animToken = 0;  
+
+  function digitCount(v) { return v.toString().length; }
+
+  function radiusFor(v) {
+    const d = digitCount(v);
+    return Math.min(34, Math.max(20, 20 + Math.max(0, d - 4) * 1.6));
+  }
+  function fontSizeFor(v) {
+    const d = digitCount(v);
+    return Math.min(14, Math.max(7.5, 14 - Math.max(0, d - 4) * 1.1));
+  }
+
+  function displayNumber(v) {
+    const s = v.toString();
+    if (s.length <= 12) return s;
+    return s.slice(0, 6) + "…" + s.slice(-4);
+  }
+
+  function makeNode(value, x, y, index) {
+    // Positioning lives on an OUTER group via the SVG `transform` attribute.
+    // The CSS boing/scale animation lives on an INNER group instead of this
+    // same element: SVG elements that have both an attribute transform and
+    // a CSS `transform` property have the CSS value fully replace the
+    // attribute (they don't compose), which previously collapsed every
+    // node's position back to the origin the moment its appear-animation
+    // started. Splitting them into two nested groups keeps position and
+    // scale independent.
+    const outer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    outer.setAttribute("transform", `translate(${x},${y})`);
+
+    const inner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    inner.classList.add("node");
+    if (index === 0) inner.classList.add("start");
+
+    const r = radiusFor(value);
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("r", r.toFixed(1));
+    inner.appendChild(circle);
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("font-size", fontSizeFor(value).toFixed(1));
+    text.textContent = displayNumber(value);
+    inner.appendChild(text);
+
+    outer.appendChild(inner);
+
+    outer.addEventListener("click", (e) => {
+      if (dragMoved) return; 
+      onNodeClick(index);
+    });
+
+    nodesG.appendChild(outer);
+
+    requestAnimationFrame(() => { inner.classList.add("appear"); });
+
+    return { value, x, y, r, el: outer, innerEl: inner, circleEl: circle };
+  }
+
+  function onNodeClick(index) {
+    for (const nd of nodes) nd.innerEl.classList.remove("active");
+    const nd = nodes[index];
+    nd.innerEl.classList.add("active");
+    const rect = stage.getBoundingClientRect();
+    animateCamTo(rect.width / 2 - nd.x * cam.k, rect.height / 2 - nd.y * cam.k, cam.k, 550);
+  }
+
+  function curvedPath(x1, y1, x2, y2, bend) {
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy / dist, ny = dx / dist;
+    const cx = mx + nx * bend;
+    const cy = my + ny * bend;
+    return `M ${x1.toFixed(1)},${y1.toFixed(1)} Q ${cx.toFixed(1)},${cy.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`;
+  }
+
+  function makeEdge(a, b, colorClass, bend) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("edge", colorClass);
+    const d = curvedPath(a.x, a.y, b.x, b.y, bend);
+    path.setAttribute("d", d);
+    edgesG.appendChild(path);
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = `${len}`;
+    path.style.strokeDashoffset = `${len}`;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { path.style.strokeDashoffset = "0"; });
+    });
+    return path;
+  }
+
+  function makeCycleEdge(a, b) {
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("edge", "edge-cycle");
+    // bigger bend so the loop reads clearly as distinct from the road
+    const bend = -Math.max(90, Math.hypot(b.x - a.x, b.y - a.y) * 0.5);
+    const d = curvedPath(a.x, a.y, b.x, b.y, bend);
+    path.setAttribute("d", d);
+    edgesG.appendChild(path);
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = `2 6`;
+    path.style.strokeDashoffset = `${len}`;
+    requestAnimationFrame(() => {
+      path.classList.add("show");
+      requestAnimationFrame(() => { path.style.strokeDashoffset = "0"; });
+    });
+    return path;
+  }
+
+  let spiralAngle = 0;
+  let baseRadius = 0;
+  let radiusOffset = 0;
+  let spiralCenterX = 0;
+  let spiralCenterY = 0;
+  let driftVX = 0;
+  let driftVY = 0;
+
+  function resetLayout() {
+    spiralAngle = 0;
+    baseRadius = 0;
+    radiusOffset = 0;
+    spiralCenterX = 0;
+    spiralCenterY = 0;
+    driftVX = 0;
+    driftVY = 0;
+  }
+
+  function nextPosition(prevNode, index, value, prevValue) {
+    const dir = Math.random() < 0.09 ? -1 : 1;
+    spiralAngle += dir * (ANGLE_STEP_BASE + Math.random() * ANGLE_JITTER);
+
+    baseRadius += BASE_GROWTH;
+    if (prevValue !== null) {
+      const delta = log10BigInt(value) - log10BigInt(prevValue);
+      radiusOffset += delta * RADIUS_SCALE;
+    }
+    radiusOffset += (Math.random() - 0.5) * RADIUS_JITTER;
+    radiusOffset = Math.max(-OFFSET_CLAMP, Math.min(OFFSET_CLAMP, radiusOffset));
+    const radius = Math.max(RADIUS_MIN, baseRadius + radiusOffset);
+
+    // the spiral's own center slowly wanders, so the shape isn't a perfect
+    driftVX = driftVX * 0.85 + (Math.random() - 0.5) * CENTER_DRIFT;
+    driftVY = driftVY * 0.85 + (Math.random() - 0.5) * CENTER_DRIFT;
+    spiralCenterX += driftVX;
+    spiralCenterY += driftVY;
+
+    let x = spiralCenterX + radius * Math.cos(spiralAngle);
+    let y = spiralCenterY + radius * Math.sin(spiralAngle);
+
+    const dx0 = x - prevNode.x, dy0 = y - prevNode.y;
+    const dist0 = Math.hypot(dx0, dy0);
+    if (dist0 < MIN_NODE_DIST) {
+      const safeDist = Math.max(dist0, 0.001);
+      const scale = MIN_NODE_DIST / safeDist;
+      x = prevNode.x + dx0 * scale;
+      y = prevNode.y + dy0 * scale;
+    }
+
+    ({ x, y } = resolveOverlaps(x, y));
+
+    return { x, y };
+  }
+
+  function resolveOverlaps(x, y) {
+    // pass 1: greedily resolve the single worst violation at a time-
+    // converges far more reliably than summing all violation vectors at
+    // once, which tends to cancel out and stall in dense clusters
+    for (let iter = 0; iter < 300; iter++) {
+      let worstDist = Infinity, worstNode = null;
+      for (const nd of nodes) {
+        const d = Math.hypot(x - nd.x, y - nd.y);
+        if (d < worstDist) { worstDist = d; worstNode = nd; }
+      }
+      if (!worstNode || worstDist >= MIN_NODE_DIST) break;
+      if (worstDist < 0.001) {
+        const ang = Math.random() * Math.PI * 2;
+        x += Math.cos(ang) * MIN_NODE_DIST;
+        y += Math.sin(ang) * MIN_NODE_DIST;
+      } else {
+        const dx = x - worstNode.x, dy = y - worstNode.y;
+        // small overshoot + tiny random jitter breaks 2-node oscillation cycles
+        const push = (MIN_NODE_DIST - worstDist) * (1.1 + Math.random() * 0.15);
+        x += (dx / worstDist) * push + (Math.random() - 0.5) * 2;
+        y += (dy / worstDist) * push + (Math.random() - 0.5) * 2;
+      }
+    }
+
+    let worst = Infinity;
+    for (const nd of nodes) worst = Math.min(worst, Math.hypot(x - nd.x, y - nd.y));
+    if (worst < MIN_NODE_DIST) {
+      const GOLDEN = 2.399963;
+      for (let attempt = 1; attempt <= 600; attempt++) {
+        const r = 7 * Math.sqrt(attempt);
+        const a = attempt * GOLDEN;
+        const cx = x + r * Math.cos(a);
+        const cy = y + r * Math.sin(a);
+        let ok = true;
+        for (const nd of nodes) {
+          if (Math.hypot(cx - nd.x, cy - nd.y) < MIN_NODE_DIST) { ok = false; break; }
+        }
+        if (ok) { x = cx; y = cy; break; }
+      }
+    }
+
+    return { x, y };
+  }
+
+  function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
+
+  function delayForLength(len) {
+    if (len <= 40) return 420;
+    return Math.max(22, 9000 / len);
+  }
+
+  async function runVisualization(startValue) {
+    const myToken = ++animToken;
+
+    // reset scene
+    nodes = [];
+    edgesG.innerHTML = "";
+    nodesG.innerHTML = "";
+    cam.x = 0; cam.y = 0; cam.k = 1;
+    applyCam();
+    statPeak.classList.remove("pulse");
+    hint.classList.remove("show");
+    capNote.classList.remove("show");
+    resetLayout();
+
+    const { seq: rawSeq, capped } = collatzSequence(startValue, MAX_NODES);
+    const seq = ensureCycleTail(rawSeq).slice(0, MAX_NODES);
+
+    statStart.textContent = formatBig(startValue);
+    statPeak.textContent = formatBig(startValue);
+
+    if (capped) {
+      capNote.textContent = `sequence exceeds ${MAX_NODES.toLocaleString()} steps — showing the first ${seq.length.toLocaleString()}`;
+      capNote.classList.add("show");
+    }
+
+    const rect = stage.getBoundingClientRect();
+    let prevPos = { x: 0, y: 0 };
+    let prevValue = null;
+    let peak = startValue;
+    const delay = delayForLength(seq.length);
+
+    // center camera on the spiral's origin
+    cam.x = rect.width / 2 - prevPos.x;
+    cam.y = rect.height / 2 - prevPos.y;
+    applyCam();
+
+    for (let i = 0; i < seq.length; i++) {
+      if (myToken !== animToken) return; // superseded by a newer run
+
+      const value = seq[i];
+      const pos = i === 0 ? prevPos : nextPosition(nodes[i - 1], i, value, prevValue);
+      const nd = makeNode(value, pos.x, pos.y, i);
+      nodes.push(nd);
+
+      if (i > 0) {
+        const wasOdd = (prevValue % 2n) !== 0n;
+        const colorClass = wasOdd ? "edge-green" : "edge-blue";
+        const bendSign = (i % 2 === 0) ? 1 : -1;
+        const dist = Math.hypot(pos.x - nodes[i - 1].x, pos.y - nodes[i - 1].y);
+        makeEdge(nodes[i - 1], nd, colorClass, bendSign * dist * 0.18);
+      }
+
+      if (value > peak) {
+        peak = value;
+        statPeak.textContent = formatBig(peak);
+        statPeak.classList.remove("pulse");
+        void statPeak.offsetWidth; // restart animation
+        statPeak.classList.add("pulse");
+      }
+
+      prevValue = value;
+
+      if (i < seq.length - 1) await sleep(delay);
+    }
+
+    if (myToken !== animToken) return;
+
+    // close the 4 -> 2 -> 1 -> 4 cycle
+    if (nodes.length >= 3) {
+      const nFour = nodes[nodes.length - 3];
+      const nOne = nodes[nodes.length - 1];
+      await sleep(Math.max(250, delay));
+      if (myToken !== animToken) return;
+      makeCycleEdge(nOne, nFour);
+    }
+
+    hint.classList.add("show");
+    goBtn.disabled = false;
+  }
+
+// input hamdling
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add("show");
+    clearTimeout(showError._t);
+    showError._t = setTimeout(() => errorMsg.classList.remove("show"), 2600);
+  }
+
+  function parsePositiveInt(str) {
+    const s = str.trim().replace(/,/g, "");
+    if (!/^[0-9]+$/.test(s)) return null;
+    if (s.length > MAX_DIGITS) return null;
+    if (/^0+$/.test(s)) return null; // zero not a valid Collatz start
+    const v = BigInt(s);
+    if (v <= 0n) return null;
+    return v;
+  }
+
+  function begin() {
+    const v = parsePositiveInt(input.value);
+    if (v === null) {
+      showError(input.value.trim() === "" ? "enter a positive integer to begin" : "please enter a whole positive number");
+      return;
+    }
+    goBtn.disabled = true;
+    runVisualization(v);
+  }
+
+  goBtn.addEventListener("click", begin);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") begin();
+  });
+
+  // gentle default so the page isn't empty on load
+  window.addEventListener("load", () => {
+    input.value = "27";
+    input.focus();
+  });
+
+})();
+</script>
+</body>
+</html>

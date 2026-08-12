@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Collatz Visualizer</title>
-
 <style>
   :root{
     --bg: #0b0c10;
@@ -40,16 +39,9 @@
     height: 100%;
     cursor: grab;
     background:
-      radial-gradient(
-        ellipse 1200px 800px at 50% 40%,
-        var(--bg-vignette) 0%,
-        var(--bg) 70%
-      );
+      radial-gradient(ellipse 1200px 800px at 50% 40%, var(--bg-vignette) 0%, var(--bg) 70%);
   }
-
-  #stage.dragging {
-    cursor: grabbing;
-  }
+  #stage.dragging { cursor: grabbing; }
 
   svg#world-svg {
     width: 100%;
@@ -62,32 +54,16 @@
     stroke-linecap: round;
     transition: stroke-dashoffset 0.6s cubic-bezier(.22,.61,.36,1);
   }
-
-  .edge-green {
-    stroke: var(--green);
-    stroke-width: 1.6;
-    opacity: 0.75;
-  }
-
-  .edge-blue {
-    stroke: var(--blue);
-    stroke-width: 1.6;
-    opacity: 0.75;
-  }
-
+  .edge-green { stroke: var(--green); stroke-width: 1.6; opacity: 0.75; }
+  .edge-blue  { stroke: var(--blue);  stroke-width: 1.6; opacity: 0.75; }
   .edge-cycle {
     stroke: var(--cycle);
     stroke-width: 1.4;
     stroke-dasharray: 2 6;
     opacity: 0;
-    transition:
-      opacity 1s ease,
-      stroke-dashoffset 1.4s cubic-bezier(.22,.61,.36,1);
+    transition: opacity 1s ease, stroke-dashoffset 1.4s cubic-bezier(.22,.61,.36,1);
   }
-
-  .edge-cycle.show {
-    opacity: 0.85;
-  }
+  .edge-cycle.show { opacity: 0.85; }
 
   .node {
     transform-box: fill-box;
@@ -95,11 +71,9 @@
     cursor: pointer;
     opacity: 0;
   }
-
   .node.appear {
     animation: boing 0.55s cubic-bezier(.34,1.56,.64,1) forwards;
   }
-
   @keyframes boing {
     0%   { transform: scale(0.05); opacity: 0; }
     55%  { transform: scale(1.22); opacity: 1; }
@@ -111,22 +85,14 @@
     fill: var(--node-fill);
     stroke: var(--node-stroke);
     stroke-width: 1.3;
-    transition:
-      stroke 0.35s ease,
-      stroke-width 0.35s ease,
-      filter 0.35s ease;
+    transition: stroke 0.35s ease, stroke-width 0.35s ease, filter 0.35s ease;
   }
-
-  .node.start circle {
-    stroke: var(--muted);
-  }
-
+  .node.start circle { stroke: var(--muted); }
   .node.active circle {
     stroke: var(--node-stroke-active);
     stroke-width: 2;
     filter: drop-shadow(0 0 6px rgba(207,205,196,0.35));
   }
-
   .node text {
     fill: var(--text);
     font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
@@ -135,6 +101,7 @@
     pointer-events: none;
     user-select: none;
   }
+
 
   #stats {
     position: fixed;
@@ -145,13 +112,7 @@
     pointer-events: none;
     user-select: none;
   }
-
-  .stat-block {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
+  .stat-block { display: flex; flex-direction: column; gap: 4px; }
   .stat-label {
     font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
     font-style: italic;
@@ -160,7 +121,6 @@
     color: var(--muted);
     text-transform: lowercase;
   }
-
   .stat-value {
     font-family: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
     font-size: 21px;
@@ -169,10 +129,7 @@
     letter-spacing: 0.01em;
     transition: color 0.3s ease;
   }
-
-  .stat-value.pulse {
-    color: var(--green);
-  }
+  .stat-value.pulse { color: var(--green); }
 
   #control {
     position: fixed;
@@ -188,7 +145,6 @@
     border-radius: 999px;
     padding: 8px 8px 8px 20px;
   }
-
   #control input[type="text"] {
     background: transparent;
     border: none;
@@ -199,11 +155,7 @@
     width: 150px;
     letter-spacing: 0.02em;
   }
-
-  #control input[type="text"]::placeholder {
-    color: var(--muted);
-  }
-
+  #control input[type="text"]::placeholder { color: var(--muted); }
   #control button {
     background: rgba(255,255,255,0.06);
     border: 1px solid rgba(255,255,255,0.1);
@@ -214,21 +166,10 @@
     padding: 8px 18px;
     border-radius: 999px;
     cursor: pointer;
-    transition:
-      background 0.2s ease,
-      border-color 0.2s ease,
-      opacity 0.2s ease;
+    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
   }
-
-  #control button:hover:not(:disabled) {
-    background: rgba(255,255,255,0.12);
-    border-color: rgba(255,255,255,0.2);
-  }
-
-  #control button:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
+  #control button:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.2); }
+  #control button:disabled { opacity: 0.35; cursor: default; }
 
   #hint {
     position: fixed;
@@ -244,10 +185,7 @@
     pointer-events: none;
     white-space: nowrap;
   }
-
-  #hint.show {
-    opacity: 0.65;
-  }
+  #hint.show { opacity: 0.65; }
 
   #fit-btn {
     position: fixed;
@@ -264,16 +202,10 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition:
-      color 0.2s ease,
-      border-color 0.2s ease;
+    transition: color 0.2s ease, border-color 0.2s ease;
     font-size: 15px;
   }
-
-  #fit-btn:hover {
-    color: var(--text);
-    border-color: rgba(255,255,255,0.22);
-  }
+  #fit-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.22); }
 
   #error-msg {
     position: fixed;
@@ -289,10 +221,7 @@
     pointer-events: none;
     white-space: nowrap;
   }
-
-  #error-msg.show {
-    opacity: 0.9;
-  }
+  #error-msg.show { opacity: 0.9; }
 
   #cap-note {
     position: fixed;
@@ -307,13 +236,9 @@
     max-width: 260px;
     text-align: right;
   }
-
-  #cap-note.show {
-    opacity: 0.6;
-  }
+  #cap-note.show { opacity: 0.6; }
 </style>
 </head>
-
 <body>
 
 <div id="stage">
@@ -330,7 +255,6 @@
     <div class="stat-label">starting point</div>
     <div class="stat-value" id="stat-start">—</div>
   </div>
-
   <div class="stat-block">
     <div class="stat-label">peak</div>
     <div class="stat-value" id="stat-peak">—</div>
@@ -342,13 +266,7 @@
 <div id="error-msg"></div>
 
 <div id="control">
-  <input
-    type="text"
-    id="num-input"
-    placeholder="enter a positive integer"
-    inputmode="numeric"
-    autocomplete="off"
-  />
+  <input type="text" id="num-input" placeholder="enter a positive integer" inputmode="numeric" autocomplete="off" />
   <button id="go-btn">begin</button>
 </div>
 
@@ -360,22 +278,20 @@
 
   const MAX_NODES = 2500;
   const MAX_DIGITS = 60;
-
+  // spiral settings
   const TARGET_RADIUS_RANGE = 20;
   const ANGLE_JITTER_FRAC = 0.3;
-  const INITIAL_LENGTH = 14;
+  const INITIAL_LENGTH = 26;
+  const RAMP_STEPS = 6;
+  const RAMP_TARGET_LENGTH = 55;
 
   function log10BigInt(n) {
     if (n <= 0n) return 0;
-
     const s = n.toString();
     const len = s.length;
-
     if (len <= 15) return Math.log10(Number(n));
-
     const prefix = s.slice(0, 15);
     const exp = len - 15;
-
     return Math.log10(Number(prefix)) + exp;
   }
 
@@ -384,47 +300,29 @@
     let n = start;
     let capped = false;
     let steps = 0;
-
     while (n !== 1n) {
       n = (n % 2n === 0n) ? (n / 2n) : (3n * n + 1n);
       seq.push(n);
-
       steps++;
-
-      if (steps >= maxSteps) {
-        capped = true;
-        break;
-      }
+      if (steps >= maxSteps) { capped = true; break; }
     }
-
     return { seq, capped };
   }
-
-  // Makes sure we have 4, 2, 1 at the end so the cycle can be drawn.
+  // make sure the cycle is shown.
   function ensureCycleTail(seq) {
     const s = seq.slice();
-
     function tailOk(arr) {
       if (arr.length < 3) return false;
-
       const l = arr.length;
-      return arr[l - 3] === 4n &&
-             arr[l - 2] === 2n &&
-             arr[l - 1] === 1n;
+      return arr[l-3] === 4n && arr[l-2] === 2n && arr[l-1] === 1n;
     }
-
     let guard = 0;
-
     while (!tailOk(s) && guard < 12) {
       const last = s[s.length - 1];
-      const next = (last % 2n === 0n)
-        ? (last / 2n)
-        : (3n * last + 1n);
-
+      const next = (last % 2n === 0n) ? (last / 2n) : (3n * last + 1n);
       s.push(next);
       guard++;
     }
-
     return s;
   }
 
@@ -445,18 +343,10 @@
   const errorMsg = document.getElementById("error-msg");
   const capNote = document.getElementById("cap-note");
   const fitBtn = document.getElementById("fit-btn");
-
-  const cam = {
-    x: 0,
-    y: 0,
-    k: 1
-  };
-
+  // camera
+  const cam = { x: 0, y: 0, k: 1 };
   function applyCam() {
-    worldG.setAttribute(
-      "transform",
-      `translate(${cam.x},${cam.y}) scale(${cam.k})`
-    );
+    worldG.setAttribute("transform", `translate(${cam.x},${cam.y}) scale(${cam.k})`);
   }
 
   let isDragging = false;
@@ -467,471 +357,270 @@
   stage.addEventListener("mousedown", (e) => {
     isDragging = true;
     dragMoved = false;
-
-    dragStart = {
-      x: e.clientX,
-      y: e.clientY
-    };
-
-    camStart = {
-      x: cam.x,
-      y: cam.y
-    };
-
+    dragStart = { x: e.clientX, y: e.clientY };
+    camStart = { x: cam.x, y: cam.y };
     stage.classList.add("dragging");
   });
-
   window.addEventListener("mousemove", (e) => {
     if (!isDragging) return;
-
     const dx = e.clientX - dragStart.x;
     const dy = e.clientY - dragStart.y;
-
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-      dragMoved = true;
-    }
-
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
     cam.x = camStart.x + dx;
     cam.y = camStart.y + dy;
-
     applyCam();
   });
-
   window.addEventListener("mouseup", () => {
     isDragging = false;
     stage.classList.remove("dragging");
   });
 
+  // touch support (basic single-finger pan)
   stage.addEventListener("touchstart", (e) => {
     if (e.touches.length !== 1) return;
-
     isDragging = true;
     dragMoved = false;
-
-    dragStart = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY
-    };
-
-    camStart = {
-      x: cam.x,
-      y: cam.y
-    };
+    dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    camStart = { x: cam.x, y: cam.y };
   }, { passive: true });
-
   stage.addEventListener("touchmove", (e) => {
     if (!isDragging || e.touches.length !== 1) return;
-
     const dx = e.touches[0].clientX - dragStart.x;
     const dy = e.touches[0].clientY - dragStart.y;
-
-    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-      dragMoved = true;
-    }
-
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
     cam.x = camStart.x + dx;
     cam.y = camStart.y + dy;
-
     applyCam();
   }, { passive: true });
-
-  stage.addEventListener("touchend", () => {
-    isDragging = false;
-  }, { passive: true });
+  stage.addEventListener("touchend", () => { isDragging = false; }, { passive: true });
 
   stage.addEventListener("wheel", (e) => {
     e.preventDefault();
-
     const rect = stage.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-
     const factor = Math.exp(-e.deltaY * 0.0012);
     const newK = Math.min(4, Math.max(0.08, cam.k * factor));
-
     const wx = (mx - cam.x) / cam.k;
     const wy = (my - cam.y) / cam.k;
-
     cam.x = mx - wx * newK;
     cam.y = my - wy * newK;
     cam.k = newK;
-
     applyCam();
   }, { passive: false });
 
-  function lerp(a, b, t) {
-    return a + (b - a) * t;
-  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
 
   function animateCamTo(targetX, targetY, targetK, duration = 650) {
-    const startX = cam.x;
-    const startY = cam.y;
-    const startK = cam.k;
+    const startX = cam.x, startY = cam.y, startK = cam.k;
     const t0 = performance.now();
-
     function step(now) {
       const t = Math.min(1, (now - t0) / duration);
-      const e = 1 - Math.pow(1 - t, 3);
-
+      const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
       cam.x = lerp(startX, targetX, e);
       cam.y = lerp(startY, targetY, e);
       cam.k = lerp(startK, targetK, e);
-
       applyCam();
-
-      if (t < 1) {
-        requestAnimationFrame(step);
-      }
+      if (t < 1) requestAnimationFrame(step);
     }
-
     requestAnimationFrame(step);
   }
 
   function fitView() {
     if (nodes.length === 0) return;
-
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const nd of nodes) {
-      minX = Math.min(minX, nd.x);
-      maxX = Math.max(maxX, nd.x);
-      minY = Math.min(minY, nd.y);
-      maxY = Math.max(maxY, nd.y);
+      minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x);
+      minY = Math.min(minY, nd.y); maxY = Math.max(maxY, nd.y);
     }
-
     const pad = 120;
     const w = Math.max(1, maxX - minX + pad * 2);
     const h = Math.max(1, maxY - minY + pad * 2);
-
     const rect = stage.getBoundingClientRect();
-    const k = Math.min(
-      2,
-      Math.min(rect.width / w, rect.height / h)
-    );
-
+    const k = Math.min(2, Math.min(rect.width / w, rect.height / h));
     const cx = (minX + maxX) / 2;
     const cy = (minY + maxY) / 2;
-
     const targetX = rect.width / 2 - cx * k;
     const targetY = rect.height / 2 - cy * k;
-
     animateCamTo(targetX, targetY, k, 750);
   }
-
   fitBtn.addEventListener("click", fitView);
 
-  let nodes = [];
-  let animToken = 0;
+  let nodes = [];       // { value, x, y, el, circleEl, r }
+  let animToken = 0;    // increments to cancel in-flight animations on new run
 
-  function digitCount(v) {
-    return v.toString().length;
-  }
+  function digitCount(v) { return v.toString().length; }
 
   function radiusFor(v) {
     const d = digitCount(v);
-
-    return Math.min(
-      34,
-      Math.max(20, 20 + Math.max(0, d - 4) * 1.6)
-    );
+    return Math.min(34, Math.max(20, 20 + Math.max(0, d - 4) * 1.6));
   }
-
   function fontSizeFor(v) {
     const d = digitCount(v);
-
-    return Math.min(
-      14,
-      Math.max(7.5, 14 - Math.max(0, d - 4) * 1.1)
-    );
+    return Math.min(14, Math.max(7.5, 14 - Math.max(0, d - 4) * 1.1));
   }
 
   function displayNumber(v) {
     const s = v.toString();
-
     if (s.length <= 12) return s;
-
     return s.slice(0, 6) + "…" + s.slice(-4);
   }
 
   function makeNode(value, x, y, index) {
-    // Keep the position and the appear animation on separate elements.
-    const outer = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "g"
-    );
-
+  // keep positioning and the appear animation on separate groups
+    const outer = document.createElementNS("http://www.w3.org/2000/svg", "g");
     outer.setAttribute("transform", `translate(${x},${y})`);
 
-    const inner = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "g"
-    );
-
+    const inner = document.createElementNS("http://www.w3.org/2000/svg", "g");
     inner.classList.add("node");
-
-    if (index === 0) {
-      inner.classList.add("start");
-    }
+    if (index === 0) inner.classList.add("start");
 
     const r = radiusFor(value);
-
-    const circle = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "circle"
-    );
-
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     circle.setAttribute("r", r.toFixed(1));
     inner.appendChild(circle);
 
-    const text = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "text"
-    );
-
-    text.setAttribute(
-      "font-size",
-      fontSizeFor(value).toFixed(1)
-    );
-
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("font-size", fontSizeFor(value).toFixed(1));
     text.textContent = displayNumber(value);
     inner.appendChild(text);
 
     outer.appendChild(inner);
 
     outer.addEventListener("click", (e) => {
-      if (dragMoved) return;
+      if (dragMoved) return; // ignore click that was actually a drag
       onNodeClick(index);
     });
 
     nodesG.appendChild(outer);
 
-    requestAnimationFrame(() => {
-      inner.classList.add("appear");
-    });
+    // trigger boing on next frame
+    requestAnimationFrame(() => { inner.classList.add("appear"); });
 
-    return {
-      value,
-      x,
-      y,
-      r,
-      el: outer,
-      innerEl: inner,
-      circleEl: circle
-    };
+    return { value, x, y, r, el: outer, innerEl: inner, circleEl: circle };
   }
 
   function onNodeClick(index) {
-    for (const nd of nodes) {
-      nd.innerEl.classList.remove("active");
-    }
-
+    for (const nd of nodes) nd.innerEl.classList.remove("active");
     const nd = nodes[index];
     nd.innerEl.classList.add("active");
-
     const rect = stage.getBoundingClientRect();
-
-    animateCamTo(
-      rect.width / 2 - nd.x * cam.k,
-      rect.height / 2 - nd.y * cam.k,
-      cam.k,
-      550
-    );
+    animateCamTo(rect.width / 2 - nd.x * cam.k, rect.height / 2 - nd.y * cam.k, cam.k, 550);
   }
 
   function curvedPath(x1, y1, x2, y2, bend) {
     const mx = (x1 + x2) / 2;
     const my = (y1 + y2) / 2;
-
-    const dx = x2 - x1;
-    const dy = y2 - y1;
+    const dx = x2 - x1, dy = y2 - y1;
     const dist = Math.max(1, Math.hypot(dx, dy));
-
-    const nx = -dy / dist;
-    const ny = dx / dist;
-
+    const nx = -dy / dist, ny = dx / dist;
     const cx = mx + nx * bend;
     const cy = my + ny * bend;
-
     return `M ${x1.toFixed(1)},${y1.toFixed(1)} Q ${cx.toFixed(1)},${cy.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`;
   }
 
   function makeEdge(a, b, colorClass) {
-    const path = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "path"
-    );
-
+  // straight edges keep the spiral from crossing itself
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.classList.add("edge", colorClass);
-
-    const d =
-      `M ${a.x.toFixed(1)},${a.y.toFixed(1)}` +
-      ` L ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
-
+    const d = `M ${a.x.toFixed(1)},${a.y.toFixed(1)} L ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
     path.setAttribute("d", d);
     edgesG.appendChild(path);
-
     const len = path.getTotalLength();
-
     path.style.strokeDasharray = `${len}`;
     path.style.strokeDashoffset = `${len}`;
-
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        path.style.strokeDashoffset = "0";
-      });
+      requestAnimationFrame(() => { path.style.strokeDashoffset = "0"; });
     });
-
     return path;
   }
 
-  function segOrient(ax, ay, bx, by, cx, cy) {
-    return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-  }
-
+  function segOrient(ax, ay, bx, by, cx, cy) { return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax); }
   function segIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
     const d1 = segOrient(x3, y3, x4, y4, x1, y1);
     const d2 = segOrient(x3, y3, x4, y4, x2, y2);
     const d3 = segOrient(x1, y1, x2, y2, x3, y3);
     const d4 = segOrient(x1, y1, x2, y2, x4, y4);
-
-    return (
-      ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-      ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
-    );
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
   }
 
   function makeCycleEdge(a, b) {
+  // check the cycle curve before using it
     const dist = Math.hypot(b.x - a.x, b.y - a.y);
-
     let bend = -dist * 0.6;
     let chosenBend = 0;
-
     for (let attempt = 0; attempt < 10; attempt++) {
-      const mx = (a.x + b.x) / 2;
-      const my = (a.y + b.y) / 2;
-
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
       const d = Math.max(1, Math.hypot(dx, dy));
-
-      const cx = mx + (-dy / d) * bend;
-      const cy = my + (dx / d) * bend;
-
+      const cx = mx + (-dy / d) * bend, cy = my + (dx / d) * bend;
       const samples = [];
-
       for (let s = 0; s <= 8; s++) {
-        const t = s / 8;
-        const mt = 1 - t;
-
+        const t = s / 8, mt = 1 - t;
         samples.push({
           x: mt * mt * a.x + 2 * mt * t * cx + t * t * b.x,
-          y: mt * mt * a.y + 2 * mt * t * cy + t * t * b.y
+          y: mt * mt * a.y + 2 * mt * t * cy + t * t * b.y,
         });
       }
-
       let crosses = false;
-
       for (let i = 1; i < nodes.length && !crosses; i++) {
-        const p = nodes[i - 1];
-        const q = nodes[i];
-
-        if (p === a || q === a || p === b || q === b) {
-          continue;
-        }
-
+        const p = nodes[i - 1], q = nodes[i];
+        if (p === a || q === a || p === b || q === b) continue;
         for (let s = 0; s < samples.length - 1; s++) {
-          if (
-            segIntersect(
-              samples[s].x,
-              samples[s].y,
-              samples[s + 1].x,
-              samples[s + 1].y,
-              p.x,
-              p.y,
-              q.x,
-              q.y
-            )
-          ) {
+          if (segIntersect(samples[s].x, samples[s].y, samples[s + 1].x, samples[s + 1].y, p.x, p.y, q.x, q.y)) {
             crosses = true;
             break;
           }
         }
       }
-
-      if (!crosses) {
-        chosenBend = bend;
-        break;
-      }
-
+      if (!crosses) { chosenBend = bend; break; }
       bend *= 0.55;
     }
 
-    const path = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "path"
-    );
-
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
     path.classList.add("edge", "edge-cycle");
-
-    const d = curvedPath(
-      a.x,
-      a.y,
-      b.x,
-      b.y,
-      chosenBend
-    );
-
+    const d = curvedPath(a.x, a.y, b.x, b.y, chosenBend);
     path.setAttribute("d", d);
     edgesG.appendChild(path);
-
     const len = path.getTotalLength();
-
     path.style.strokeDasharray = `2 6`;
     path.style.strokeDashoffset = `${len}`;
-
     requestAnimationFrame(() => {
       path.classList.add("show");
-
-      requestAnimationFrame(() => {
-        path.style.strokeDashoffset = "0";
-      });
+      requestAnimationFrame(() => { path.style.strokeDashoffset = "0"; });
     });
-
     return path;
   }
+  // layout
 
   let turtleHeading = 0;
   let turtleLength = 0;
   let turtleX = 0;
   let turtleY = 0;
   let turtleAngleStep = 0;
-  let turtleGrowthFactor = 1;
+  let turtleRampGrowth = 1;
+  let turtleSteadyGrowth = 1;
+  let turtleRampStepsLeft = 0;
 
   function initSpiralForRun(n) {
+    // how many nodes make up one revolution- scales gently with length so
+    // short sequences still complete a few visible loops and long ones
+    // don't need an absurd canvas lol
     const targetRevolutions = Math.max(2, Math.sqrt(n) / 3);
     const nodesPerRev = Math.max(8, n / targetRevolutions);
-
     turtleAngleStep = (2 * Math.PI) / nodesPerRev;
 
-    let growth = Math.pow(
-      TARGET_RADIUS_RANGE,
-      1 / Math.max(1, n - 1)
-    );
+    const dipFraction = 1 - Math.cos(turtleAngleStep / 2);
+    const minGrowthPerRev = 1 + 6 * dipFraction + 0.05;
+    const minPerStepGrowth = Math.pow(minGrowthPerRev, 1 / nodesPerRev);
 
-    const dipFraction =
-      1 - Math.cos(turtleAngleStep / 2);
+    turtleRampStepsLeft = Math.min(RAMP_STEPS, Math.max(1, n - 1));
+    const rampRatio = Math.max(1, RAMP_TARGET_LENGTH / INITIAL_LENGTH);
+    turtleRampGrowth = Math.max(Math.pow(rampRatio, 1 / turtleRampStepsLeft), minPerStepGrowth);
 
-    const minGrowthPerRev =
-      1 + 6 * dipFraction + 0.05;
-
-    const minPerStepGrowth =
-      Math.pow(minGrowthPerRev, 1 / nodesPerRev);
-
-    turtleGrowthFactor =
-      Math.max(growth, minPerStepGrowth);
+    const remainingSteps = Math.max(1, (n - 1) - turtleRampStepsLeft);
+    const remainingRange = Math.max(1, TARGET_RADIUS_RANGE / rampRatio);
+    turtleSteadyGrowth = Math.max(Math.pow(remainingRange, 1 / remainingSteps), minPerStepGrowth);
 
     turtleHeading = Math.PI / 2;
     turtleLength = INITIAL_LENGTH;
@@ -940,28 +629,22 @@
   }
 
   function nextPosition() {
-    turtleHeading +=
-      turtleAngleStep *
-      (1 + (Math.random() - 0.5) * ANGLE_JITTER_FRAC);
-
-    turtleLength *= turtleGrowthFactor;
-
+    turtleHeading += turtleAngleStep * (1 + (Math.random() - 0.5) * ANGLE_JITTER_FRAC);
+    if (turtleRampStepsLeft > 0) {
+      turtleLength *= turtleRampGrowth;
+      turtleRampStepsLeft--;
+    } else {
+      turtleLength *= turtleSteadyGrowth;
+    }
     turtleX += turtleLength * Math.cos(turtleHeading);
     turtleY += turtleLength * Math.sin(turtleHeading);
-
-    return {
-      x: turtleX,
-      y: turtleY
-    };
+    return { x: turtleX, y: turtleY };
   }
-
-  function sleep(ms) {
-    return new Promise((res) => setTimeout(res, ms));
-  }
+  // animation
+  function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
   function delayForLength(len) {
     if (len <= 40) return 420;
-
     return Math.max(22, 9000 / len);
   }
 
@@ -971,96 +654,51 @@
     nodes = [];
     edgesG.innerHTML = "";
     nodesG.innerHTML = "";
-
-    cam.x = 0;
-    cam.y = 0;
-    cam.k = 1;
-
+    cam.x = 0; cam.y = 0; cam.k = 1;
     applyCam();
-
     statPeak.classList.remove("pulse");
     hint.classList.remove("show");
     capNote.classList.remove("show");
 
-    const {
-      seq: rawSeq,
-      capped
-    } = collatzSequence(startValue, MAX_NODES);
-
-    const seq = ensureCycleTail(rawSeq).slice(
-      0,
-      MAX_NODES
-    );
-
+    const { seq: rawSeq, capped } = collatzSequence(startValue, MAX_NODES);
+    const seq = ensureCycleTail(rawSeq).slice(0, MAX_NODES);
     initSpiralForRun(seq.length);
 
     statStart.textContent = formatBig(startValue);
     statPeak.textContent = formatBig(startValue);
 
     if (capped) {
-      capNote.textContent =
-        `sequence exceeds ${MAX_NODES.toLocaleString()} steps — ` +
-        `showing the first ${seq.length.toLocaleString()}`;
-
+      capNote.textContent = `sequence exceeds ${MAX_NODES.toLocaleString()} steps — showing the first ${seq.length.toLocaleString()}`;
       capNote.classList.add("show");
     }
 
     const rect = stage.getBoundingClientRect();
-
-    let prevPos = {
-      x: 0,
-      y: 0
-    };
-
+    let prevPos = { x: 0, y: 0 };
     let prevValue = null;
     let peak = startValue;
-
     const delay = delayForLength(seq.length);
 
     cam.x = rect.width / 2 - prevPos.x;
     cam.y = rect.height / 2 - prevPos.y;
-
     applyCam();
 
     for (let i = 0; i < seq.length; i++) {
       if (myToken !== animToken) return;
 
       const value = seq[i];
-
-      const pos =
-        i === 0
-          ? prevPos
-          : nextPosition();
-
-      const nd = makeNode(
-        value,
-        pos.x,
-        pos.y,
-        i
-      );
-
+      const pos = i === 0 ? prevPos : nextPosition();
+      const nd = makeNode(value, pos.x, pos.y, i);
       nodes.push(nd);
 
       if (i > 0) {
-        const wasOdd =
-          (prevValue % 2n) !== 0n;
-
-        const colorClass =
-          wasOdd
-            ? "edge-green"
-            : "edge-blue";
-
-        makeEdge(
-          nodes[i - 1],
-          nd,
-          colorClass
-        );
+        const wasOdd = (prevValue % 2n) !== 0n;
+        const colorClass = wasOdd ? "edge-green" : "edge-blue";
+        makeEdge(nodes[i - 1], nd, colorClass);
       }
 
       if (value > peak) {
         peak = value;
         statPeak.textContent = formatBig(peak);
-
         statPeak.classList.remove("pulse");
         void statPeak.offsetWidth;
         statPeak.classList.add("pulse");
@@ -1068,9 +706,7 @@
 
       prevValue = value;
 
-      if (i < seq.length - 1) {
-        await sleep(delay);
-      }
+      if (i < seq.length - 1) await sleep(delay);
     }
 
     if (myToken !== animToken) return;
@@ -1078,11 +714,8 @@
     if (nodes.length >= 3) {
       const nFour = nodes[nodes.length - 3];
       const nOne = nodes[nodes.length - 1];
-
       await sleep(Math.max(250, delay));
-
       if (myToken !== animToken) return;
-
       makeCycleEdge(nOne, nFour);
     }
 
@@ -1090,54 +723,37 @@
     goBtn.disabled = false;
   }
 
+  // Input handling
   function showError(msg) {
     errorMsg.textContent = msg;
     errorMsg.classList.add("show");
-
     clearTimeout(showError._t);
-
-    showError._t = setTimeout(() => {
-      errorMsg.classList.remove("show");
-    }, 2600);
+    showError._t = setTimeout(() => errorMsg.classList.remove("show"), 2600);
   }
 
   function parsePositiveInt(str) {
     const s = str.trim().replace(/,/g, "");
-
     if (!/^[0-9]+$/.test(s)) return null;
     if (s.length > MAX_DIGITS) return null;
-    if (/^0+$/.test(s)) return null;
-
+    if (/^0+$/.test(s)) return null; // zero not a valid Collatz start
     const v = BigInt(s);
-
     if (v <= 0n) return null;
-
     return v;
   }
 
   function begin() {
     const v = parsePositiveInt(input.value);
-
     if (v === null) {
-      showError(
-        input.value.trim() === ""
-          ? "enter a positive integer to begin"
-          : "please enter a whole positive number"
-      );
-
+      showError(input.value.trim() === "" ? "enter a positive integer to begin" : "please enter a whole positive number");
       return;
     }
-
     goBtn.disabled = true;
     runVisualization(v);
   }
 
   goBtn.addEventListener("click", begin);
-
   input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      begin();
-    }
+    if (e.key === "Enter") begin();
   });
 
   window.addEventListener("load", () => {
@@ -1147,6 +763,5 @@
 
 })();
 </script>
-
 </body>
 </html>

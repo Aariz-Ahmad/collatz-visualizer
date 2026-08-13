@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Collatz Visualizer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="stage">
+  <svg id="world-svg">
+    <g id="world">
+      <g id="edges"></g>
+      <g id="nodes"></g>
+    </g>
+  </svg>
+</div>
+
+<div id="stats">
+  <div class="stat-block">
+    <div class="stat-label">starting point</div>
+    <div class="stat-value" id="stat-start">—</div>
+  </div>
+  <div class="stat-block">
+    <div class="stat-label">peak</div>
+    <div class="stat-value" id="stat-peak">—</div>
+  </div>
+</div>
+
+<div id="cap-note"></div>
+<div id="hint">drag to pan · scroll to zoom · click a node</div>
+<div id="error-msg"></div>
+
+<div id="control">
+  <input type="text" id="num-input" placeholder="enter a positive integer" inputmode="numeric" autocomplete="off" />
+  <button id="go-btn">begin</button>
+</div>
+
+<div id="fit-btn" title="fit view">⤢</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,490 @@
+(function(){
+  "use strict";
+
+  const MAX_NODES = 2500;
+  const MAX_DIGITS = 60;
+  // spiral settings
+  const TARGET_RADIUS_RANGE = 20;
+  const ANGLE_JITTER_FRAC = 0.3;
+  const INITIAL_LENGTH = 26;
+  const RAMP_STEPS = 6;
+  const RAMP_TARGET_LENGTH = 55;
+
+  function log10BigInt(n) {
+    if (n <= 0n) return 0;
+    const s = n.toString();
+    const len = s.length;
+    if (len <= 15) return Math.log10(Number(n));
+    const prefix = s.slice(0, 15);
+    const exp = len - 15;
+    return Math.log10(Number(prefix)) + exp;
+  }
+
+  function collatzSequence(start, maxSteps) {
+    const seq = [start];
+    let n = start;
+    let capped = false;
+    let steps = 0;
+    while (n !== 1n) {
+      n = (n % 2n === 0n) ? (n / 2n) : (3n * n + 1n);
+      seq.push(n);
+      steps++;
+      if (steps >= maxSteps) { capped = true; break; }
+    }
+    return { seq, capped };
+  }
+  // make sure the cycle is shown.
+  function ensureCycleTail(seq) {
+    const s = seq.slice();
+    function tailOk(arr) {
+      if (arr.length < 3) return false;
+      const l = arr.length;
+      return arr[l-3] === 4n && arr[l-2] === 2n && arr[l-1] === 1n;
+    }
+    let guard = 0;
+    while (!tailOk(s) && guard < 12) {
+      const last = s[s.length - 1];
+      const next = (last % 2n === 0n) ? (last / 2n) : (3n * last + 1n);
+      s.push(next);
+      guard++;
+    }
+    return s;
+  }
+
+  function formatBig(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  }
+
+  const svg = document.getElementById("world-svg");
+  const stage = document.getElementById("stage");
+  const worldG = document.getElementById("world");
+  const edgesG = document.getElementById("edges");
+  const nodesG = document.getElementById("nodes");
+  const input = document.getElementById("num-input");
+  const goBtn = document.getElementById("go-btn");
+  const statStart = document.getElementById("stat-start");
+  const statPeak = document.getElementById("stat-peak");
+  const hint = document.getElementById("hint");
+  const errorMsg = document.getElementById("error-msg");
+  const capNote = document.getElementById("cap-note");
+  const fitBtn = document.getElementById("fit-btn");
+  // camera
+  const cam = { x: 0, y: 0, k: 1 };
+  function applyCam() {
+    worldG.setAttribute("transform", `translate(${cam.x},${cam.y}) scale(${cam.k})`);
+  }
+
+  let isDragging = false;
+  let dragStart = null;
+  let camStart = null;
+  let dragMoved = false;
+
+  stage.addEventListener("mousedown", (e) => {
+    isDragging = true;
+    dragMoved = false;
+    dragStart = { x: e.clientX, y: e.clientY };
+    camStart = { x: cam.x, y: cam.y };
+    stage.classList.add("dragging");
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!isDragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+    cam.x = camStart.x + dx;
+    cam.y = camStart.y + dy;
+    applyCam();
+  });
+  window.addEventListener("mouseup", () => {
+    isDragging = false;
+    stage.classList.remove("dragging");
+  });
+
+  // touch support (basic single-finger pan)
+  stage.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    isDragging = true;
+    dragMoved = false;
+    dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    camStart = { x: cam.x, y: cam.y };
+  }, { passive: true });
+  stage.addEventListener("touchmove", (e) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    const dx = e.touches[0].clientX - dragStart.x;
+    const dy = e.touches[0].clientY - dragStart.y;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) dragMoved = true;
+    cam.x = camStart.x + dx;
+    cam.y = camStart.y + dy;
+    applyCam();
+  }, { passive: true });
+  stage.addEventListener("touchend", () => { isDragging = false; }, { passive: true });
+
+  stage.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const rect = stage.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const factor = Math.exp(-e.deltaY * 0.0012);
+    const newK = Math.min(4, Math.max(0.08, cam.k * factor));
+    const wx = (mx - cam.x) / cam.k;
+    const wy = (my - cam.y) / cam.k;
+    cam.x = mx - wx * newK;
+    cam.y = my - wy * newK;
+    cam.k = newK;
+    applyCam();
+  }, { passive: false });
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+
+  function animateCamTo(targetX, targetY, targetK, duration = 650) {
+    const startX = cam.x, startY = cam.y, startK = cam.k;
+    const t0 = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - t0) / duration);
+      const e = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      cam.x = lerp(startX, targetX, e);
+      cam.y = lerp(startY, targetY, e);
+      cam.k = lerp(startK, targetK, e);
+      applyCam();
+      if (t < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  function fitView() {
+    if (nodes.length === 0) return;
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const nd of nodes) {
+      minX = Math.min(minX, nd.x); maxX = Math.max(maxX, nd.x);
+      minY = Math.min(minY, nd.y); maxY = Math.max(maxY, nd.y);
+    }
+    const pad = 120;
+    const w = Math.max(1, maxX - minX + pad * 2);
+    const h = Math.max(1, maxY - minY + pad * 2);
+    const rect = stage.getBoundingClientRect();
+    const k = Math.min(2, Math.min(rect.width / w, rect.height / h));
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const targetX = rect.width / 2 - cx * k;
+    const targetY = rect.height / 2 - cy * k;
+    animateCamTo(targetX, targetY, k, 750);
+  }
+  fitBtn.addEventListener("click", fitView);
+
+  let nodes = [];       // { value, x, y, el, circleEl, r }
+  let animToken = 0;    // increments to cancel in-flight animations on new run
+
+  function digitCount(v) { return v.toString().length; }
+
+  function radiusFor(v) {
+    const d = digitCount(v);
+    return Math.min(34, Math.max(20, 20 + Math.max(0, d - 4) * 1.6));
+  }
+  function fontSizeFor(v) {
+    const d = digitCount(v);
+    return Math.min(14, Math.max(7.5, 14 - Math.max(0, d - 4) * 1.1));
+  }
+
+  function displayNumber(v) {
+    const s = v.toString();
+    if (s.length <= 12) return s;
+    return s.slice(0, 6) + "…" + s.slice(-4);
+  }
+
+  function makeNode(value, x, y, index) {
+  // keep positioning and the appear animation on separate groups
+    const outer = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    outer.setAttribute("transform", `translate(${x},${y})`);
+
+    const inner = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    inner.classList.add("node");
+    if (index === 0) inner.classList.add("start");
+
+    const r = radiusFor(value);
+    const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    circle.setAttribute("r", r.toFixed(1));
+    inner.appendChild(circle);
+
+    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    text.setAttribute("font-size", fontSizeFor(value).toFixed(1));
+    text.textContent = displayNumber(value);
+    inner.appendChild(text);
+
+    outer.appendChild(inner);
+
+    outer.addEventListener("click", (e) => {
+      if (dragMoved) return; // ignore click that was actually a drag
+      onNodeClick(index);
+    });
+
+    nodesG.appendChild(outer);
+
+    // trigger boing on next frame
+    requestAnimationFrame(() => { inner.classList.add("appear"); });
+
+    return { value, x, y, r, el: outer, innerEl: inner, circleEl: circle };
+  }
+
+  function onNodeClick(index) {
+    for (const nd of nodes) nd.innerEl.classList.remove("active");
+    const nd = nodes[index];
+    nd.innerEl.classList.add("active");
+    const rect = stage.getBoundingClientRect();
+    animateCamTo(rect.width / 2 - nd.x * cam.k, rect.height / 2 - nd.y * cam.k, cam.k, 550);
+  }
+
+  function curvedPath(x1, y1, x2, y2, bend) {
+    const mx = (x1 + x2) / 2;
+    const my = (y1 + y2) / 2;
+    const dx = x2 - x1, dy = y2 - y1;
+    const dist = Math.max(1, Math.hypot(dx, dy));
+    const nx = -dy / dist, ny = dx / dist;
+    const cx = mx + nx * bend;
+    const cy = my + ny * bend;
+    return `M ${x1.toFixed(1)},${y1.toFixed(1)} Q ${cx.toFixed(1)},${cy.toFixed(1)} ${x2.toFixed(1)},${y2.toFixed(1)}`;
+  }
+
+  function makeEdge(a, b, colorClass) {
+  // straight edges keep the spiral from crossing itself
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("edge", colorClass);
+    const d = `M ${a.x.toFixed(1)},${a.y.toFixed(1)} L ${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+    path.setAttribute("d", d);
+    edgesG.appendChild(path);
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = `${len}`;
+    path.style.strokeDashoffset = `${len}`;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => { path.style.strokeDashoffset = "0"; });
+    });
+    return path;
+  }
+
+  function segOrient(ax, ay, bx, by, cx, cy) { return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax); }
+  function segIntersect(x1, y1, x2, y2, x3, y3, x4, y4) {
+    const d1 = segOrient(x3, y3, x4, y4, x1, y1);
+    const d2 = segOrient(x3, y3, x4, y4, x2, y2);
+    const d3 = segOrient(x1, y1, x2, y2, x3, y3);
+    const d4 = segOrient(x1, y1, x2, y2, x4, y4);
+    return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+  }
+
+  function makeCycleEdge(a, b) {
+  // check the cycle curve before using it
+    const dist = Math.hypot(b.x - a.x, b.y - a.y);
+    let bend = -dist * 0.6;
+    let chosenBend = 0;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.max(1, Math.hypot(dx, dy));
+      const cx = mx + (-dy / d) * bend, cy = my + (dx / d) * bend;
+      const samples = [];
+      for (let s = 0; s <= 8; s++) {
+        const t = s / 8, mt = 1 - t;
+        samples.push({
+          x: mt * mt * a.x + 2 * mt * t * cx + t * t * b.x,
+          y: mt * mt * a.y + 2 * mt * t * cy + t * t * b.y,
+        });
+      }
+      let crosses = false;
+      for (let i = 1; i < nodes.length && !crosses; i++) {
+        const p = nodes[i - 1], q = nodes[i];
+        if (p === a || q === a || p === b || q === b) continue;
+        for (let s = 0; s < samples.length - 1; s++) {
+          if (segIntersect(samples[s].x, samples[s].y, samples[s + 1].x, samples[s + 1].y, p.x, p.y, q.x, q.y)) {
+            crosses = true;
+            break;
+          }
+        }
+      }
+      if (!crosses) { chosenBend = bend; break; }
+      bend *= 0.55;
+    }
+
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("edge", "edge-cycle");
+    const d = curvedPath(a.x, a.y, b.x, b.y, chosenBend);
+    path.setAttribute("d", d);
+    edgesG.appendChild(path);
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = `2 6`;
+    path.style.strokeDashoffset = `${len}`;
+    requestAnimationFrame(() => {
+      path.classList.add("show");
+      requestAnimationFrame(() => { path.style.strokeDashoffset = "0"; });
+    });
+    return path;
+  }
+  // layout
+
+  let turtleHeading = 0;
+  let turtleLength = 0;
+  let turtleX = 0;
+  let turtleY = 0;
+  let turtleAngleStep = 0;
+  let turtleRampGrowth = 1;
+  let turtleSteadyGrowth = 1;
+  let turtleRampStepsLeft = 0;
+
+  function initSpiralForRun(n) {
+    // how many nodes make up one revolution- scales gently with length so
+    // short sequences still complete a few visible loops and long ones
+    // don't need an absurd canvas lol
+    const targetRevolutions = Math.max(2, Math.sqrt(n) / 3);
+    const nodesPerRev = Math.max(8, n / targetRevolutions);
+    turtleAngleStep = (2 * Math.PI) / nodesPerRev;
+
+    const dipFraction = 1 - Math.cos(turtleAngleStep / 2);
+    const minGrowthPerRev = 1 + 6 * dipFraction + 0.05;
+    const minPerStepGrowth = Math.pow(minGrowthPerRev, 1 / nodesPerRev);
+
+    turtleRampStepsLeft = Math.min(RAMP_STEPS, Math.max(1, n - 1));
+    const rampRatio = Math.max(1, RAMP_TARGET_LENGTH / INITIAL_LENGTH);
+    turtleRampGrowth = Math.max(Math.pow(rampRatio, 1 / turtleRampStepsLeft), minPerStepGrowth);
+
+    const remainingSteps = Math.max(1, (n - 1) - turtleRampStepsLeft);
+    const remainingRange = Math.max(1, TARGET_RADIUS_RANGE / rampRatio);
+    turtleSteadyGrowth = Math.max(Math.pow(remainingRange, 1 / remainingSteps), minPerStepGrowth);
+
+    turtleHeading = Math.PI / 2;
+    turtleLength = INITIAL_LENGTH;
+    turtleX = 0;
+    turtleY = 0;
+  }
+
+  function nextPosition() {
+    turtleHeading += turtleAngleStep * (1 + (Math.random() - 0.5) * ANGLE_JITTER_FRAC);
+    if (turtleRampStepsLeft > 0) {
+      turtleLength *= turtleRampGrowth;
+      turtleRampStepsLeft--;
+    } else {
+      turtleLength *= turtleSteadyGrowth;
+    }
+    turtleX += turtleLength * Math.cos(turtleHeading);
+    turtleY += turtleLength * Math.sin(turtleHeading);
+    return { x: turtleX, y: turtleY };
+  }
+  // animation
+  function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
+
+  function delayForLength(len) {
+    if (len <= 40) return 420;
+    return Math.max(22, 9000 / len);
+  }
+
+  async function runVisualization(startValue) {
+    const myToken = ++animToken;
+
+    nodes = [];
+    edgesG.innerHTML = "";
+    nodesG.innerHTML = "";
+    cam.x = 0; cam.y = 0; cam.k = 1;
+    applyCam();
+    statPeak.classList.remove("pulse");
+    hint.classList.remove("show");
+    capNote.classList.remove("show");
+
+    const { seq: rawSeq, capped } = collatzSequence(startValue, MAX_NODES);
+    const seq = ensureCycleTail(rawSeq).slice(0, MAX_NODES);
+    initSpiralForRun(seq.length);
+
+    statStart.textContent = formatBig(startValue);
+    statPeak.textContent = formatBig(startValue);
+
+    if (capped) {
+      capNote.textContent = `sequence exceeds ${MAX_NODES.toLocaleString()} steps — showing the first ${seq.length.toLocaleString()}`;
+      capNote.classList.add("show");
+    }
+
+    const rect = stage.getBoundingClientRect();
+    let prevPos = { x: 0, y: 0 };
+    let prevValue = null;
+    let peak = startValue;
+    const delay = delayForLength(seq.length);
+
+    cam.x = rect.width / 2 - prevPos.x;
+    cam.y = rect.height / 2 - prevPos.y;
+    applyCam();
+
+    for (let i = 0; i < seq.length; i++) {
+      if (myToken !== animToken) return;
+
+      const value = seq[i];
+      const pos = i === 0 ? prevPos : nextPosition();
+      const nd = makeNode(value, pos.x, pos.y, i);
+      nodes.push(nd);
+
+      if (i > 0) {
+        const wasOdd = (prevValue % 2n) !== 0n;
+        const colorClass = wasOdd ? "edge-green" : "edge-blue";
+        makeEdge(nodes[i - 1], nd, colorClass);
+      }
+
+      if (value > peak) {
+        peak = value;
+        statPeak.textContent = formatBig(peak);
+        statPeak.classList.remove("pulse");
+        void statPeak.offsetWidth;
+        statPeak.classList.add("pulse");
+      }
+
+      prevValue = value;
+
+      if (i < seq.length - 1) await sleep(delay);
+    }
+
+    if (myToken !== animToken) return;
+
+    if (nodes.length >= 3) {
+      const nFour = nodes[nodes.length - 3];
+      const nOne = nodes[nodes.length - 1];
+      await sleep(Math.max(250, delay));
+      if (myToken !== animToken) return;
+      makeCycleEdge(nOne, nFour);
+    }
+
+    hint.classList.add("show");
+    goBtn.disabled = false;
+  }
+
+
+  // Input handling
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.add("show");
+    clearTimeout(showError._t);
+    showError._t = setTimeout(() => errorMsg.classList.remove("show"), 2600);
+  }
+
+  function parsePositiveInt(str) {
+    const s = str.trim().replace(/,/g, "");
+    if (!/^[0-9]+$/.test(s)) return null;
+    if (s.length > MAX_DIGITS) return null;
+    if (/^0+$/.test(s)) return null; // zero not a valid Collatz start
+    const v = BigInt(s);
+    if (v <= 0n) return null;
+    return v;
+  }
+
+  function begin() {
+    const v = parsePositiveInt(input.value);
+    if (v === null) {
+      showError(input.value.trim() === "" ? "enter a positive integer to begin" : "please enter a whole positive number");
+      return;
+    }
+    goBtn.disabled = true;
+    runVisualization(v);
+  }
+
+  goBtn.addEventListener("click", begin);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") begin();
+  });
+
+  window.addEventListener("load", () => {
+    input.value = "47";
+    input.focus();
+  });
+
+})();
